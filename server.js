@@ -1,12 +1,12 @@
 const express = require('express');
 const session = require('express-session');
-const fetch = require('node-fetch');
+const axios = require('axios');
 const path = require('path');
+require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configurations via les variables d'environnement
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const BOT_TOKEN = process.env.BOT_TOKEN;
@@ -24,59 +24,49 @@ app.use(session({
     cookie: { secure: false }
 }));
 
-// Route pour démarrer la connexion Discord
 app.get('/api/auth/discord', (req, res) => {
     const discordAuthUrl = `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=identify+guilds.members.read`;
     res.redirect(discordAuthUrl);
 });
 
-// Callback Discord OAuth2
 app.get('/api/auth/callback', async (req, res) => {
     const code = req.query.code;
     if (!code) return res.status(400).send('Code d’autorisation manquant.');
 
     try {
-        // Échange du code contre un Token
-        const tokenResponse = await fetch('https://discord.com/api/v10/oauth2/token', {
-            method: 'POST',
-            body: new URLSearchParams({
-                client_id: CLIENT_ID,
-                client_secret: CLIENT_SECRET,
-                grant_type: 'authorization_code',
-                code: code,
-                redirect_uri: REDIRECT_URI,
-            }),
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        const params = new URLSearchParams({
+            client_id: CLIENT_ID,
+            client_secret: CLIENT_SECRET,
+            grant_type: 'authorization_code',
+            code: code,
+            redirect_uri: REDIRECT_URI,
         });
 
-        const tokenData = await tokenResponse.json();
+        const tokenResponse = await axios.post('https://discord.com/api/v10/oauth2/token', params.toString(), {
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        });
+
+        const tokenData = tokenResponse.data;
         if (!tokenData.access_token) {
             return res.status(401).send('Échec de la récupération du token Discord.');
         }
 
-        // Récupération du profil utilisateur
-        const userResponse = await fetch('https://discord.com/api/v10/users/@me', {
-            headers: { authorization: `Bearer ${tokenData.access_token}` },
+        const userResponse = await axios.get('https://discord.com/api/v10/users/@me', {
+            headers: { Authorization: `Bearer ${tokenData.access_token}` }
         });
-        const userData = await userResponse.json();
+        const userData = userResponse.data;
 
-        // Vérification du rôle dans le serveur Discord via le Bot
-        const memberResponse = await fetch(`https://discord.com/api/v10/guilds/${GUILD_ID}/members/${userData.id}`, {
-            headers: { authorization: `Bot ${BOT_TOKEN}` },
+        const memberResponse = await axios.get(`https://discord.com/api/v10/guilds/${GUILD_ID}/members/${userData.id}`, {
+            headers: { Authorization: `Bot ${BOT_TOKEN}` }
         });
 
-        if (!memberResponse.ok) {
-            return res.status(403).send('Vous ne faites pas partie du serveur Discord requis.');
-        }
-
-        const memberData = await memberResponse.json();
+        const memberData = memberResponse.data;
         const hasRole = memberData.roles && memberData.roles.includes(REQUIRED_ROLE_ID);
 
         if (!hasRole) {
             return res.status(403).send('Accès refusé : rôle requis manquant.');
         }
 
-        // Sauvegarde de la session utilisateur
         req.session.user = {
             id: userData.id,
             username: userData.username,
@@ -86,12 +76,11 @@ app.get('/api/auth/callback', async (req, res) => {
 
         res.redirect('/');
     } catch (error) {
-        console.error('Erreur lors de l’authentification :', error);
-        res.status(500).send('Erreur interne du serveur.');
+        console.error('Erreur lors de l’authentification :', error.response ? error.response.data : error.message);
+        res.status(500).send('Erreur lors de la connexion à Discord.');
     }
 });
 
-// Endpoint pour vérifier l'état de la session
 app.get('/api/user', (req, res) => {
     if (req.session.user) {
         res.json({ authenticated: true, user: req.session.user });
@@ -100,7 +89,6 @@ app.get('/api/user', (req, res) => {
     }
 });
 
-// Déconnexion
 app.get('/api/logout', (req, res) => {
     req.session.destroy();
     res.redirect('/');
