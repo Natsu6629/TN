@@ -18,12 +18,16 @@ app.use(session({
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID || '';
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || '';
 const REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || 'https://tn-11cs.onrender.com/api/auth/callback';
+const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN || '';
+const GUILD_ID = process.env.DISCORD_GUILD_ID || '';
+const ROLE_ID = '1540922728675016794';
 
 let unitesActives = [];
 
+// 1. Authentification OAuth2
 app.get('/api/auth/login', (req, res) => {
     if (!CLIENT_ID) {
-        return res.status(500).send("Erreur : DISCORD_CLIENT_ID n'est pas configuré dans Render.");
+        return res.status(500).send("Erreur : DISCORD_CLIENT_ID non configuré sur Render.");
     }
     const discordUrl = `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify`;
     res.redirect(discordUrl);
@@ -82,6 +86,42 @@ app.get('/api/auth/logout', (req, res) => {
     });
 });
 
+// 2. Récupération des agents via le Bot Discord (Filtre par Rôle)
+app.get('/api/members', async (req, res) => {
+    if (!BOT_TOKEN || !GUILD_ID) {
+        return res.status(500).json({ error: "DISCORD_BOT_TOKEN ou GUILD_ID non configuré sur Render." });
+    }
+
+    try {
+        const response = await axios.get(`https://discord.com/api/v10/guilds/${GUILD_ID}/members?limit=1000`, {
+            headers: {
+                Authorization: `Bot ${BOT_TOKEN}`
+            }
+        });
+
+        const membresFiltres = response.data
+            .filter(member => member.roles && member.roles.includes(ROLE_ID))
+            .map(member => {
+                const user = member.user;
+                const avatar = user.avatar
+                    ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
+                    : 'https://cdn.discordapp.com/embed/avatars/0.png';
+                
+                return {
+                    id: user.id,
+                    username: member.nick || user.global_name || user.username,
+                    avatar: avatar
+                };
+            });
+
+        res.json(membresFiltres);
+    } catch (error) {
+        console.error('Erreur API Discord Members:', error.response?.data || error.message);
+        res.status(500).json({ error: "Impossible de récupérer les membres." });
+    }
+});
+
+// 3. Gestion des Unités
 app.get('/api/unites', (req, res) => {
     res.json(unitesActives);
 });
@@ -125,17 +165,7 @@ app.delete('/api/unites/:index', (req, res) => {
     }
 });
 
-app.get('/api/members', (req, res) => {
-    const membresExemples = [
-        { username: 'Ethan', avatar: 'https://cdn.discordapp.com/embed/avatars/0.png' },
-        { username: 'Moha', avatar: 'https://cdn.discordapp.com/embed/avatars/1.png' },
-        { username: 'Esteban', avatar: 'https://cdn.discordapp.com/embed/avatars/2.png' }
-    ];
-    res.json(membresExemples);
-});
-
-// Écoute sur le port attribué par Render
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Serveur prêt et à l'écoute sur le port ${PORT}`);
+    console.log(`Serveur démarré sur le port ${PORT}`);
 });
