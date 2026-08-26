@@ -1,37 +1,39 @@
 const express = require('express');
 const session = require('express-session');
-const axios = require('axios'); // ou fetch natif selon ta version de Node
+const axios = require('axios');
+const path = require('path');
+
 const app = express();
 
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Configuration de la session
 app.use(session({
-    secret: 'votre_secret_session_super_securise',
+    secret: process.env.SESSION_SECRET || 'transmission_secret_key_12345',
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 86400000 } // 24h
+    cookie: { maxAge: 86400000 }
 }));
 
-// Variables d'environnement (à configurer dans les paramètres Render)
-const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
-const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
+const CLIENT_ID = process.env.DISCORD_CLIENT_ID || '';
+const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || '';
 const REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || 'https://tn-11cs.onrender.com/api/auth/callback';
 
-// 1. Redirection vers Discord
+let unitesActives = [];
+
 app.get('/api/auth/login', (req, res) => {
+    if (!CLIENT_ID) {
+        return res.status(500).send("Erreur : DISCORD_CLIENT_ID n'est pas configuré dans Render.");
+    }
     const discordUrl = `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify`;
     res.redirect(discordUrl);
 });
 
-// 2. Callback OAuth Discord
 app.get('/api/auth/callback', async (req, res) => {
     const code = req.query.code;
     if (!code) return res.redirect('/?error=no_code');
 
     try {
-        // Échange du code contre un token
         const tokenResponse = await axios.post('https://discord.com/api/oauth2/token', new URLSearchParams({
             client_id: CLIENT_ID,
             client_secret: CLIENT_SECRET,
@@ -44,7 +46,6 @@ app.get('/api/auth/callback', async (req, res) => {
 
         const accessToken = tokenResponse.data.access_token;
 
-        // Récupération du profil utilisateur
         const userResponse = await axios.get('https://discord.com/api/users/@me', {
             headers: { Authorization: `Bearer ${accessToken}` }
         });
@@ -54,7 +55,6 @@ app.get('/api/auth/callback', async (req, res) => {
             ? `https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png`
             : 'https://cdn.discordapp.com/embed/avatars/0.png';
 
-        // Sauvegarde de l'utilisateur en session
         req.session.user = {
             id: userData.id,
             username: userData.username,
@@ -68,7 +68,6 @@ app.get('/api/auth/callback', async (req, res) => {
     }
 });
 
-// 3. Endpoint de vérification de session (appelé par index.html)
 app.get('/api/me', (req, res) => {
     if (req.session && req.session.user) {
         res.json({ authenticated: true, user: req.session.user });
@@ -77,9 +76,66 @@ app.get('/api/me', (req, res) => {
     }
 });
 
-// 4. Déconnexion
 app.get('/api/auth/logout', (req, res) => {
     req.session.destroy(() => {
         res.redirect('/');
     });
+});
+
+app.get('/api/unites', (req, res) => {
+    res.json(unitesActives);
+});
+
+app.post('/api/unites/prise-de-service', (req, res) => {
+    const { indicatif, division, armement, statut, coéquipiers } = req.body;
+    const effectifs = req.session.user 
+        ? (coéquipiers ? `${req.session.user.username}, ${coéquipiers}` : req.session.user.username)
+        : (coéquipiers || 'Agent inconnu');
+
+    const nouvelleUnite = {
+        indicatif,
+        division,
+        armement,
+        statut: statut || 'En patrouille',
+        effectifs
+    };
+
+    unitesActives.push(nouvelleUnite);
+    res.json({ success: true, unite: nouvelleUnite });
+});
+
+app.put('/api/unites/:index', (req, res) => {
+    const index = parseInt(req.params.index);
+    if (unitesActives[index]) {
+        if (req.body.statut) unitesActives[index].statut = req.body.statut;
+        if (req.body.effectifs) unitesActives[index].effectifs = req.body.effectifs;
+        res.json({ success: true, unite: unitesActives[index] });
+    } else {
+        res.status(404).json({ error: "Unité introuvable" });
+    }
+});
+
+app.delete('/api/unites/:index', (req, res) => {
+    const index = parseInt(req.params.index);
+    if (unitesActives[index]) {
+        unitesActives.splice(index, 1);
+        res.json({ success: true });
+    } else {
+        res.status(404).json({ error: "Unité introuvable" });
+    }
+});
+
+app.get('/api/members', (req, res) => {
+    const membresExemples = [
+        { username: 'Ethan', avatar: 'https://cdn.discordapp.com/embed/avatars/0.png' },
+        { username: 'Moha', avatar: 'https://cdn.discordapp.com/embed/avatars/1.png' },
+        { username: 'Esteban', avatar: 'https://cdn.discordapp.com/embed/avatars/2.png' }
+    ];
+    res.json(membresExemples);
+});
+
+// Écoute sur le port attribué par Render
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Serveur prêt et à l'écoute sur le port ${PORT}`);
 });
