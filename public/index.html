@@ -23,47 +23,46 @@
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
-        body { background-color: var(--bg-color); color: var(--text-main); min-height: 100vh; padding: 30px 20px; }
+        body { background-color: var(--bg-color); color: var(--text-main); min-height: 100vh; padding: 25px 20px; }
         
-        header { text-align: center; margin-bottom: 30px; }
-        .header-title-container { display: flex; align-items: center; justify-content: center; gap: 15px; }
+        header { max-width: 1400px; margin: 0 auto 25px auto; }
+        .header-container { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+        .header-title-container { display: flex; align-items: center; gap: 15px; }
         .header-logo { height: 48px; width: auto; object-fit: contain; }
         header h1 { font-size: 1.8rem; font-weight: 700; }
-        header p { color: var(--text-muted); margin-top: 6px; font-size: 0.9rem; }
+        header p { color: var(--text-muted); margin-top: 2px; font-size: 0.85rem; }
 
-        .auth-bar { max-width: 1400px; margin: 0 auto 20px auto; display: flex; justify-content: flex-end; align-items: center; }
-
-        .btn-discord {
+        .btn-discord-top {
             background-color: var(--discord-color);
             color: white;
             padding: 10px 18px;
             border-radius: 8px;
             text-decoration: none;
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 0.88rem;
             display: inline-flex;
             align-items: center;
-            justify-content: center;
             gap: 10px;
-            width: 100%;
+            transition: background 0.2s;
         }
+        .btn-discord-top:hover { background-color: #4752C4; }
 
         .user-profile {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
             background: var(--card-bg);
-            padding: 8px 16px;
+            padding: 6px 14px;
             border-radius: 30px;
             border: 1px solid var(--border-color);
         }
-        .user-avatar { width: 32px; height: 32px; border-radius: 50%; }
+        .user-avatar { width: 30px; height: 30px; border-radius: 50%; }
 
         .main-container {
             max-width: 1400px;
             margin: 0 auto;
             display: grid;
-            grid-template-columns: 320px 1fr 280px;
+            grid-template-columns: 320px 1fr 300px;
             gap: 20px;
         }
 
@@ -99,7 +98,10 @@
             color: var(--text-main);
             font-size: 0.9rem;
             outline: none;
+            transition: border-color 0.2s, background-color 0.2s;
         }
+        .form-control:focus { border-color: var(--accent-blue); }
+        .form-control.highlight { border-color: var(--success-color); background-color: rgba(16, 185, 129, 0.1); }
 
         .btn-submit {
             width: 100%;
@@ -117,6 +119,7 @@
             gap: 8px;
             margin-top: 15px;
         }
+        .btn-submit:hover { opacity: 0.9; }
 
         .units-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .stats-badge { background-color: rgba(0, 85, 165, 0.2); color: #60a5fa; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
@@ -142,34 +145,73 @@
 
         .no-units { grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--text-muted); font-style: italic; }
         
-        .agents-list { max-height: 550px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        .agents-list { max-height: 580px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px; }
         .agent-card { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: 6px; }
-        .btn-add-agent { background: #5865F2; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; }
+        .btn-add-agent { background: #5865F2; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.78rem; font-weight: 600; display: flex; align-items: center; gap: 4px; transition: background 0.2s; }
         .btn-add-agent:hover { background: #4752C4; }
     </style>
 </head>
 <body>
 
     <header>
-        <div class="header-title-container">
-            <img src="https://i.ibb.co/dZ0ctkQ/image.png" alt="Logo Centrale" class="header-logo">
-            <h1>Transmission Nationale</h1>
+        <div class="header-container">
+            <div class="header-title-container">
+                <img src="https://i.ibb.co/dZ0ctkQ/image.png" alt="Logo Centrale" class="header-logo">
+                <div>
+                    <h1>Transmission Nationale</h1>
+                    <p>Interface de commandement & Authentification Discord</p>
+                </div>
+            </div>
+            <div id="auth-bar"></div>
         </div>
-        <p>Interface de commandement & Authentification Discord</p>
     </header>
 
-    <div class="auth-bar" id="auth-bar"></div>
-
     <div class="main-container">
+        <!-- Formulaire Prise de Service (Création de Patrouille) -->
         <div class="card" id="form-card">
             <h2><i class="fa-solid fa-circle-plus" style="color: var(--accent-blue);"></i> Prise de Service</h2>
-            <div id="form-content">
-                <a href="/api/auth/login" class="btn-discord">
-                    <i class="fa-brands fa-discord"></i> Se connecter avec Discord
-                </a>
-            </div>
+            <form id="form-unite">
+                <div class="form-group">
+                    <label for="indicatif">Indicatif de l'unité</label>
+                    <input type="text" id="indicatif" class="form-control" placeholder="ex: Alpha 1, BAC 3" required autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="division">Division / Service</label>
+                    <select id="division" class="form-control">
+                        <option value="Sécurité Publique (Standard)">Sécurité Publique (Standard)</option>
+                        <option value="Brigade Anti-Criminalité (BAC)">Brigade Anti-Criminalité (BAC)</option>
+                        <option value="Police Judiciaire (PJ)">Police Judiciaire (PJ)</option>
+                        <option value="RAID">RAID</option>
+                        <option value="CRS">CRS</option>
+                        <option value="Brigade Motorisée (BMO)">Brigade Motorisée (BMO)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="armement">Armement</label>
+                    <select id="armement" class="form-control">
+                        <option value="Léger">Léger</option>
+                        <option value="Moyen">Moyen</option>
+                        <option value="Lourd">Lourd</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="coequipiers-input">Agents / Composition</label>
+                    <input type="text" id="coequipiers-input" class="form-control" placeholder="Cliquez sur + Ajouter à droite..." autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="statut">Statut initial</label>
+                    <select id="statut" class="form-control">
+                        <option value="En patrouille">En patrouille</option>
+                        <option value="Sur intervention">Sur intervention</option>
+                        <option value="En procédure">En procédure</option>
+                        <option value="Indisponible">Indisponible / QG</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-submit"><i class="fa-solid fa-paper-plane"></i> Créer la patrouille</button>
+            </form>
         </div>
 
+        <!-- Unités en Ligne -->
         <div class="card">
             <div class="units-header">
                 <h2><i class="fa-solid fa-list-check" style="color: var(--accent-blue);"></i> Unités en Ligne</h2>
@@ -178,6 +220,7 @@
             <div id="units-grid" class="units-grid"></div>
         </div>
 
+        <!-- Agents Disponibles -->
         <div class="card">
             <h2><i class="fa-solid fa-users" style="color: var(--accent-blue);"></i> Agents disponibles</h2>
             <div id="panneau-agents-droite" class="agents-list">
@@ -190,15 +233,12 @@
         let currentUser = null;
 
         async function init() {
-            // Charger la liste des agents directement au démarrage
             chargerAgentsDisponibles();
 
             try {
                 const resAuth = await fetch('/api/me');
                 const authData = await resAuth.json();
-
                 const authBar = document.getElementById('auth-bar');
-                const formContent = document.getElementById('form-content');
 
                 if (authData.authenticated) {
                     currentUser = authData.user;
@@ -206,56 +246,18 @@
                         <div class="user-profile">
                             <img src="${currentUser.avatar}" class="user-avatar" alt="Avatar">
                             <span><strong>${currentUser.username}</strong></span>
-                            <a href="/api/auth/logout" style="color: var(--danger-color); margin-left: 10px; font-size: 0.8rem;"><i class="fa-solid fa-right-from-bracket"></i></a>
+                            <a href="/api/auth/logout" style="color: var(--danger-color); margin-left: 8px; font-size: 0.85rem;" title="Déconnexion"><i class="fa-solid fa-right-from-bracket"></i></a>
                         </div>
                     `;
 
-                    formContent.innerHTML = `
-                        <form id="form-unite">
-                            <div class="form-group">
-                                <label for="indicatif">Indicatif de l'unité</label>
-                                <input type="text" id="indicatif" class="form-control" placeholder="ex: Alpha 1, BAC 3" required autocomplete="off">
-                            </div>
-                            <div class="form-group">
-                                <label for="division">Division / Service</label>
-                                <select id="division" class="form-control">
-                                    <option value="Sécurité Publique (Standard)">Sécurité Publique (Standard)</option>
-                                    <option value="Brigade Anti-Criminalité (BAC)">Brigade Anti-Criminalité (BAC)</option>
-                                    <option value="Police Judiciaire (PJ)">Police Judiciaire (PJ)</option>
-                                    <option value="RAID">RAID</option>
-                                    <option value="CRS">CRS</option>
-                                    <option value="Brigade Motorisée (BMO)">Brigade Motorisée (BMO)</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="armement">Armement</label>
-                                <select id="armement" class="form-control">
-                                    <option value="Léger">Léger</option>
-                                    <option value="Moyen">Moyen</option>
-                                    <option value="Lourd">Lourd</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="coequipiers-input">Coéquipiers à bord</label>
-                                <input type="text" id="coequipiers-input" class="form-control" placeholder="Cliquez sur + Ajouter" autocomplete="off">
-                            </div>
-                            <div class="form-group">
-                                <label for="statut">Statut initial</label>
-                                <select id="statut" class="form-control">
-                                    <option value="En patrouille">En patrouille</option>
-                                    <option value="Sur intervention">Sur intervention</option>
-                                    <option value="En procédure">En procédure</option>
-                                    <option value="Indisponible">Indisponible / QG</option>
-                                </select>
-                            </div>
-                            <button type="submit" class="btn-submit"><i class="fa-solid fa-paper-plane"></i> Prendre mon service</button>
-                        </form>
-                    `;
-
-                    document.getElementById('form-unite').addEventListener('submit', prendreService);
+                    // Si l'utilisateur est connecté et le champ agent est vide, on l'ajoute par défaut
+                    const inputCoep = document.getElementById('coequipiers-input');
+                    if (inputCoep && inputCoep.value.trim() === '') {
+                        inputCoep.value = currentUser.username;
+                    }
                 } else {
-                    formContent.innerHTML = `
-                        <a href="/api/auth/login" class="btn-discord">
+                    authBar.innerHTML = `
+                        <a href="/api/auth/login" class="btn-discord-top">
                             <i class="fa-brands fa-discord"></i> Se connecter avec Discord
                         </a>
                     `;
@@ -264,6 +266,7 @@
                 console.error("Erreur d'authentification:", e);
             }
 
+            document.getElementById('form-unite').addEventListener('submit', prendreService);
             chargerUnites();
             setInterval(chargerUnites, 5000);
         }
@@ -280,7 +283,7 @@
                 }
 
                 if (!Array.isArray(agents) || agents.length === 0) {
-                    container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; text-align: center;">Aucun agent trouvé avec ce rôle.</p>';
+                    container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; text-align: center;">Aucun agent disponible.</p>';
                     return;
                 }
 
@@ -289,11 +292,11 @@
                     const card = document.createElement('div');
                     card.className = 'agent-card';
                     card.innerHTML = `
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <img src="${agent.avatar}" width="28" height="28" style="border-radius: 50%;">
-                            <span style="color: white; font-size: 13px; font-weight: 500;">${agent.username}</span>
+                        <div style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+                            <img src="${agent.avatar}" width="28" height="28" style="border-radius: 50%; flex-shrink: 0;">
+                            <span style="color: white; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${agent.username}</span>
                         </div>
-                        <button class="btn-add-agent" onclick="ajouterCoequipier('${agent.username}')">+ Ajouter</button>
+                        <button class="btn-add-agent" onclick="ajouterCoequipier('${agent.username.replace(/'/g, "\\'")}')">+ Ajouter</button>
                     `;
                     container.appendChild(card);
                 });
@@ -305,13 +308,19 @@
 
         function ajouterCoequipier(nom) {
             const inputCoequipiers = document.getElementById('coequipiers-input');
-            if (inputCoequipiers) {
-                if (inputCoequipiers.value.trim() !== '') {
-                    inputCoequipiers.value += `, ${nom}`;
-                } else {
-                    inputCoequipiers.value = nom;
-                }
+            if (!inputCoequipiers) return;
+
+            let actuels = inputCoequipiers.value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            
+            // Évite d'ajouter deux fois le même agent
+            if (!actuels.includes(nom)) {
+                actuels.push(nom);
+                inputCoequipiers.value = actuels.join(', ');
             }
+
+            // Animation visuelle de confirmation
+            inputCoequipiers.classList.add('highlight');
+            setTimeout(() => inputCoequipiers.classList.remove('highlight'), 400);
         }
 
         async function chargerUnites() {
@@ -325,7 +334,7 @@
                 unitsGrid.innerHTML = '';
 
                 if (unites.length === 0) {
-                    unitsGrid.innerHTML = '<div class="no-units">Aucune unité active sur le réseau pour le moment.</div>';
+                    unitsGrid.innerHTML = '<div class="no-units">Aucune patrouille en cours pour le moment.</div>';
                     return;
                 }
 
@@ -352,9 +361,9 @@
                         </div>
                         <div class="unit-details">
                             <div><strong>Service :</strong> ${u.division}</div>
-                            <div><strong>Armement :</strong> <span>${u.armement}</span></div>
-                            <div>
-                                <strong>Agents à bord :</strong>
+                            <div><strong>Armement :</strong> ${u.armement}</div>
+                            <div style="margin-top: 6px;">
+                                <strong>Composition :</strong>
                                 <input type="text" class="effectifs-input" value="${u.effectifs}" onchange="changerEffectifs(${index}, this.value)" autocomplete="off">
                             </div>
                         </div>
@@ -387,6 +396,8 @@
                 body: JSON.stringify(body)
             });
 
+            // Réinitialisation du champ d'indicatif et recharge
+            document.getElementById('indicatif').value = '';
             chargerUnites();
         }
 
