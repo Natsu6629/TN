@@ -169,57 +169,6 @@
         .btn-delete:hover { color: var(--danger-color); }
 
         .no-units { grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--text-muted); font-style: italic; }
-
-        .agents-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            max-height: 600px;
-            overflow-y: auto;
-        }
-
-        .agent-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid var(--border-color);
-            padding: 8px 12px;
-            border-radius: 8px;
-        }
-
-        .agent-info {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .agent-avatar {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-        }
-
-        .agent-name {
-            font-size: 0.85rem;
-            font-weight: 500;
-        }
-
-        .btn-add-agent {
-            background-color: rgba(0, 85, 165, 0.2);
-            color: #60a5fa;
-            border: 1px solid rgba(0, 85, 165, 0.4);
-            border-radius: 6px;
-            padding: 4px 8px;
-            cursor: pointer;
-            font-size: 0.75rem;
-            transition: all 0.2s;
-        }
-
-        .btn-add-agent:hover {
-            background-color: var(--accent-blue);
-            color: white;
-        }
     </style>
 </head>
 <body>
@@ -239,7 +188,9 @@
         <div class="card" id="form-card">
             <h2><i class="fa-solid fa-circle-plus" style="color: var(--accent-blue);"></i> Prise de Service</h2>
             <div id="form-content">
-                <p style="color: var(--text-muted); font-size: 0.9rem;">Veuillez vous connecter avec Discord pour prendre votre service.</p>
+                <a href="/api/auth/login" class="btn-discord">
+                    <i class="fa-brands fa-discord"></i> Se connecter avec Discord
+                </a>
             </div>
         </div>
 
@@ -253,12 +204,10 @@
             <div id="units-grid" class="units-grid"></div>
         </div>
 
-        <!-- 3. Panneau latéral droit : Liste des Agents Habilités -->
-        <div class="card">
-            <h2><i class="fa-solid fa-users" style="color: var(--accent-blue);"></i> Agents Habilités</h2>
-            <div id="agents-list" class="agents-list">
-                <p style="color: var(--text-muted); font-size: 0.85rem; text-align: center;">Chargement...</p>
-            </div>
+        <!-- 3. Panneau latéral droit : Agents disponibles -->
+        <div class="card" id="panneau-agents-droite">
+            <h2><i class="fa-solid fa-users" style="color: var(--accent-blue);"></i> Agents disponibles</h2>
+            <p style="color: var(--text-muted); font-size: 0.85rem; text-align: center;">Chargement...</p>
         </div>
     </div>
 
@@ -309,8 +258,8 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="coéquipiers">Coéquipiers à bord</label>
-                                <input type="text" id="coéquipiers" class="form-control" placeholder="Cliquez sur + à droite" autocomplete="off">
+                                <label for="coequipiers-input">Coéquipiers à bord</label>
+                                <input type="text" id="coequipiers-input" class="form-control" placeholder="Cliquez sur + Ajouter" autocomplete="off">
                             </div>
                             <div class="form-group">
                                 <label for="statut">Statut initial</label>
@@ -326,9 +275,9 @@
                     `;
 
                     document.getElementById('form-unite').addEventListener('submit', prendreService);
-                    chargerAgents();
+                    chargerAgentsDisponibles();
                 } else {
-                    authBar.innerHTML = `
+                    formContent.innerHTML = `
                         <a href="/api/auth/login" class="btn-discord">
                             <i class="fa-brands fa-discord"></i> Se connecter avec Discord
                         </a>
@@ -342,44 +291,46 @@
             setInterval(chargerUnites, 5000);
         }
 
-        async function chargerAgents() {
+        async function chargerAgentsDisponibles() {
             try {
-                const res = await fetch('/api/members');
-                const agents = await res.json();
-                const container = document.getElementById('agents-list');
+                const response = await fetch('/api/members');
+                const agents = await response.json();
+
+                const container = document.getElementById('panneau-agents-droite');
+                if (!container) return;
+                
+                container.innerHTML = '<h2><i class="fa-solid fa-users" style="color: var(--accent-blue);"></i> Agents disponibles</h2>';
 
                 if (!Array.isArray(agents) || agents.length === 0) {
-                    container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; text-align: center;">Aucun agent trouvé.</p>';
+                    container.innerHTML += '<p style="color: var(--text-muted); font-size: 0.85rem; text-align: center;">Aucun agent trouvé.</p>';
                     return;
                 }
 
-                container.innerHTML = '';
                 agents.forEach(agent => {
-                    const item = document.createElement('div');
-                    item.className = 'agent-item';
-                    item.innerHTML = `
-                        <div class="agent-info">
-                            <img src="${agent.avatar}" class="agent-avatar" alt="Avatar">
-                            <span class="agent-name">${agent.username}</span>
+                    const card = document.createElement('div');
+                    card.style.cssText = 'display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding: 6px 10px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: 6px;';
+                    card.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <img src="${agent.avatar}" width="28" height="28" style="border-radius: 50%;">
+                            <span style="color: white; font-size: 14px;">${agent.username}</span>
                         </div>
-                        <button class="btn-add-agent" onclick="ajouterCoequipier('${agent.username}')">
-                            <i class="fa-solid fa-plus"></i>
-                        </button>
+                        <button onclick="ajouterCoequipier('${agent.username}')" style="background: #5865F2; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;">+ Ajouter</button>
                     `;
-                    container.appendChild(item);
+                    container.appendChild(card);
                 });
-            } catch (e) {
-                console.error("Erreur de chargement des agents:", e);
+            } catch (err) {
+                console.error('Erreur chargement agents :', err);
             }
         }
 
         function ajouterCoequipier(nom) {
-            const field = document.getElementById('coéquipiers');
-            if (!field) return;
-            if (field.value.trim() !== '') {
-                field.value += `, ${nom}`;
-            } else {
-                field.value = nom;
+            const inputCoequipiers = document.getElementById('coequipiers-input');
+            if (inputCoequipiers) {
+                if (inputCoequipiers.value.trim() !== '') {
+                    inputCoequipiers.value += `, ${nom}`;
+                } else {
+                    inputCoequipiers.value = nom;
+                }
             }
         }
 
@@ -448,7 +399,7 @@
                 division: document.getElementById('division').value,
                 armement: document.getElementById('armement').value,
                 statut: document.getElementById('statut').value,
-                coéquipiers: document.getElementById('coéquipiers').value
+                coéquipiers: document.getElementById('coequipiers-input').value
             };
 
             await fetch('/api/unites/prise-de-service', {
